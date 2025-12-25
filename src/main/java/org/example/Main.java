@@ -6,12 +6,6 @@ import java.io.FileReader;
 import java.util.Scanner;
 
 
-class LineTooLongException extends RuntimeException {
-    public LineTooLongException(String message) {
-        super(message);
-    }
-}
-
 public class Main {
     private static final int MAX_LINE_LENGTH = 1024;
     public static void main(String[] args) {
@@ -49,8 +43,6 @@ public class Main {
             BufferedReader reader = new BufferedReader(fileReader);
             String line;
             int lineCounter = 0;
-            int maxLength = 0;
-            int minLength = Integer.MAX_VALUE;
             while ((line = reader.readLine()) != null) {
                 lineCounter++;
                 int currentLength = line.length();
@@ -59,27 +51,8 @@ public class Main {
                             String.format("Строка " + lineCounter + " слишком длинная: " + currentLength + " символов (максимум " + MAX_LINE_LENGTH + ")")
                     );
                 }
-                if (currentLength > maxLength) {
-                    maxLength = currentLength;
-                }
-                if (currentLength > 0 && currentLength < minLength) {
-                    minLength = currentLength;
-                }
             }
             System.out.println("Всего строк: " + lineCounter);
-
-            if (lineCounter > 0) {
-                if (maxLength > 0) {
-                    System.out.println("Длина самой длинной строки: " + maxLength + " символов");
-
-                }
-                if (minLength != Integer.MAX_VALUE) {
-                    System.out.println("Длина самой короткой строки: " + minLength + " символов");
-                }
-            } else {
-                System.out.println("Файл пуст");
-            }
-
         } catch (LineTooLongException e) {
             throw e;
         } catch (Exception ex) {
