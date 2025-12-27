@@ -41,6 +41,7 @@ public class Main {
         try {
             FileReader fileReader = new FileReader(filePath);
             BufferedReader reader = new BufferedReader(fileReader);
+            Statistics stats = new Statistics();
             String line;
             int lineCounter = 0;
             while ((line = reader.readLine()) != null) {
@@ -51,8 +52,11 @@ public class Main {
                             String.format("Строка " + lineCounter + " слишком длинная: " + currentLength + " символов (максимум " + MAX_LINE_LENGTH + ")")
                     );
                 }
+                LogEntry entry = new LogEntry(line);
+                stats.addEntry(entry);
             }
             System.out.println("Всего строк: " + lineCounter);
+            System.out.println(stats.getStatisticsReport());
         } catch (LineTooLongException e) {
             throw e;
         } catch (Exception ex) {
