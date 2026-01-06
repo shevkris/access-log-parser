@@ -40,7 +40,7 @@ public class Main {
     }
 
     private static void analyzeLogFile(String filePath) {
-       try  {
+        try {
             FileReader fileReader = new FileReader(filePath);
             BufferedReader reader = new BufferedReader(fileReader);
             String line;
@@ -85,6 +85,7 @@ public class Main {
             ex.printStackTrace();
         }
     }
+
     private static String extractUserAgentFromLogLine(String logLine) {
         int lastQuote = logLine.lastIndexOf('"');
         if (lastQuote == -1) return null;
@@ -100,7 +101,8 @@ public class Main {
         String[] bracketContents = extractAllBracketContents(userAgent);
 
         for (String bracketContent : bracketContents) {
-            if (bracketContent.contains("compatible")) {String botName = extractBotNameFromBracketContent(bracketContent);
+            if (bracketContent.contains("compatible")) {
+                String botName = extractBotNameFromBracketContent(bracketContent);
                 if (botName != null) {
                     return botName;
                 }
@@ -146,7 +148,8 @@ public class Main {
                     }
                 }
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+        }
 
         return null;
     }
