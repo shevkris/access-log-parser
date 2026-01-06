@@ -21,7 +21,7 @@ public class UserAgent {
     }
 
     private OperatingSystem detectOperatingSystem(String userAgent) {
-        if (userAgent == null || userAgent.isEmpty() || userAgent.equals("-")){
+        if (userAgent == null || userAgent.isEmpty() || userAgent.equals("-")) {
             return OperatingSystem.UNKNOWN;
         }
 
@@ -55,7 +55,7 @@ public class UserAgent {
     }
 
     private Browser detectBrowser(String userAgent) {
-        if (userAgent == null || userAgent.isEmpty() || userAgent.equals("-")){
+        if (userAgent == null || userAgent.isEmpty() || userAgent.equals("-")) {
             return Browser.OTHER;
         }
 

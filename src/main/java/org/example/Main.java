@@ -8,6 +8,7 @@ import java.util.Scanner;
 
 public class Main {
     private static final int MAX_LINE_LENGTH = 1024;
+
     public static void main(String[] args) {
         int N = 0;
         while (true) {
