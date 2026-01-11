@@ -5,4 +5,3 @@ public class LineTooLongException extends RuntimeException {
         super(message);
     }
 }
-

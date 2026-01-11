@@ -32,17 +32,18 @@ public class Main {
             N++;
             System.out.println("Путь №" + N);
             try {
-                analyzeLogFile(path);
+                readFileWithLengthCheck(path);
             } catch (LineTooLongException e) {
                 System.err.println("ОШИБКА: " + e.getMessage());
             }
         }
     }
 
-    private static void analyzeLogFile(String filePath) {
+    private static void readFileWithLengthCheck(String filePath) {
         try {
             FileReader fileReader = new FileReader(filePath);
             BufferedReader reader = new BufferedReader(fileReader);
+            Statistics stats = new Statistics();
             String line;
             int lineCounter = 0;
             int googlebotCount = 0;
@@ -65,6 +66,8 @@ public class Main {
                         yandexbotCount++;
                     }
                 }
+                LogEntry entry = new LogEntry(line);
+                stats.addEntry(entry);
             }
 
             DecimalFormat df = new DecimalFormat("0.00%");
@@ -79,6 +82,8 @@ public class Main {
                 System.out.println("Всего ботов: " + df.format((double) (googlebotCount + yandexbotCount) / lineCounter));
             }
 
+            System.out.println("Всего строк: " + lineCounter);
+            System.out.println(stats.getStatisticsReport());
         } catch (LineTooLongException e) {
             throw e;
         } catch (Exception ex) {
