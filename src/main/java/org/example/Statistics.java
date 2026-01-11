@@ -3,19 +3,27 @@ package org.example;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class Statistics {
     private int totalTraffic;
     private LocalDateTime minTime;
     private LocalDateTime maxTime;
     private int entryCount;
-
+    // Для хранения несуществующих страниц с кодом 404
+    private final Set<String> notFoundPages;
+    private final Map<String, Integer> browserStatistics;
     // Конструктор без параметров
     public Statistics() {
         this.totalTraffic = 0;
         this.minTime = null;
         this.maxTime = null;
         this.entryCount = 0;
+        this.notFoundPages = new HashSet<>();
+        this.browserStatistics = new HashMap<>();
     }
 
     public void addEntry(LogEntry entry) {
@@ -31,6 +39,12 @@ public class Statistics {
 
         if (this.maxTime == null || entryTime.isAfter(this.maxTime)) {
             this.maxTime = entryTime;
+        }
+        if (entry.getStatusCode() == 404) {
+            String path = entry.getPath();
+            if (path != null && !path.isEmpty()) {
+                notFoundPages.add(path);
+            }
         }
     }
 
