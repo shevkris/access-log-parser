@@ -27,11 +27,6 @@ public class LogEntry {
             "^([\\d.]+) (\\S+) (\\S+) \\[([^\\]]+)\\] \"(\\S+) (\\S+) (\\S+)\" (\\d{3}|-) (\\d+|-) \"([^\"]*)\" \"([^\"]*)\"$"
     );
 
-    // Enum для методов HTTP-запросов
-    public enum HttpMethod {
-        GET, POST, PUT, DELETE, HEAD, OPTIONS, PATCH, CONNECT, TRACE, UNKNOWN
-    }
-
     public LogEntry(String logLine) {
         this.ipAddress = "";
         this.firstDash = "";
