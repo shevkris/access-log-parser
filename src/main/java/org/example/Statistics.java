@@ -13,10 +13,10 @@ public class Statistics {
     private LocalDateTime minTime;
     private LocalDateTime maxTime;
     private int entryCount;
-    // Для хранения несуществующих страниц с кодом 404
+
     private final Set<String> notFoundPages;
     private final Map<String, Integer> browserStatistics;
-    // Конструктор без параметров
+
     public Statistics() {
         this.totalTraffic = 0;
         this.minTime = null;
@@ -27,7 +27,6 @@ public class Statistics {
     }
 
     public void addEntry(LogEntry entry) {
-        // Добавляем трафик
         this.totalTraffic += entry.getResponseSize();
         this.entryCount++;
 
@@ -46,6 +45,38 @@ public class Statistics {
                 notFoundPages.add(path);
             }
         }
+
+        UserAgent userAgent = entry.getUserAgent();
+        if (userAgent != null) {
+            String browserName = userAgent.getBrowser().name();
+            browserStatistics.put(browserName, browserStatistics.getOrDefault(browserName, 0) + 1);
+        }
+    }
+
+    public Set<String> getNotFoundPages() {
+        return new HashSet<>(notFoundPages);
+    }
+
+    public Map<String, Double> getBrowserStatistics() {
+        Map<String, Double> result = new HashMap<>();
+
+        if (browserStatistics.isEmpty()) {
+            return result;
+        }
+
+        int totalBrowserEntries = 0;
+        for (Integer count : browserStatistics.values()) {
+            totalBrowserEntries += count;
+        }
+
+        for (Map.Entry<String, Integer> entry : browserStatistics.entrySet()) {
+            String browserName = entry.getKey();
+            int count = entry.getValue();
+            double percentage = (double) count / totalBrowserEntries;
+            result.put(browserName, percentage);
+        }
+
+        return result;
     }
 
     public double getTrafficRate() {
@@ -109,7 +140,35 @@ public class Statistics {
         } else {
             report.append("Нет данных для анализа\n");
         }
+        report.append(String.format("   Количество уникальных несуществуюших страниц (код 404): %d\n", notFoundPages.size()));
 
+        if (!notFoundPages.isEmpty()) {
+            int pageNumber = 1;
+            for (String page : notFoundPages) {
+                report.append(String.format("   %d. %s\n", pageNumber, page));
+                pageNumber++;
+            }
+        } else {
+            report.append("   Нет страниц с кодом ответа 404\n");
+        }
+
+        Map<String, Double> browserStats = getBrowserStatistics();
+        if (!browserStats.isEmpty()) {
+            report.append(String.format("   Уникальных браузеров: %d\n", browserStats.size()));
+            report.append("   Распределение по браузерам:\n");
+
+            browserStats.entrySet().stream()
+                    .sorted((e1, e2) -> Double.compare(e2.getValue(), e1.getValue()))
+                    .forEach(entry -> {
+                        String browserName = entry.getKey();
+                        double percentage = entry.getValue() * 100;
+                        int count = browserStatistics.get(browserName);
+                        report.append(String.format("   - %s: %.2f%% (%d записей)\n",
+                                browserName, percentage, count));
+                    });
+        } else {
+            report.append("   Нет данных о браузерах\n");
+        }
         return report.toString();
     }
 }
