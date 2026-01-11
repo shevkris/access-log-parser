@@ -81,8 +81,6 @@ public class Main {
                 System.out.println("YandexBot: " + df.format((double) yandexbotCount / lineCounter));
                 System.out.println("Всего ботов: " + df.format((double) (googlebotCount + yandexbotCount) / lineCounter));
             }
-
-            System.out.println("Всего строк: " + lineCounter);
             System.out.println(stats.getStatisticsReport());
         } catch (LineTooLongException e) {
             throw e;
