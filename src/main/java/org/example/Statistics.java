@@ -14,13 +14,13 @@ public class Statistics {
     private LocalDateTime minTime;
     private LocalDateTime maxTime;
     private int entryCount;
-
     private final Set<String> existingPages;
-
     private final Map<String, Integer> osStatistics;
-
     private final Set<String> notFoundPages;
     private final Map<String, Integer> browserStatistics;
+    private int humanVisitsCount;
+    private int errorRequestsCount;
+    private final Set<String> uniqueHumanIPs;
 
     public Statistics() {
         this.totalTraffic = 0;
@@ -31,6 +31,9 @@ public class Statistics {
         this.osStatistics = new HashMap<>();
         this.notFoundPages = new HashSet<>();
         this.browserStatistics = new HashMap<>();
+        this.humanVisitsCount = 0;
+        this.errorRequestsCount = 0;
+        this.uniqueHumanIPs = new HashSet<>();
     }
 
     public void addEntry(LogEntry entry) {
@@ -62,6 +65,24 @@ public class Statistics {
                 notFoundPages.add(path);
             }
         }
+        // Проверяем, является ли запрос от обычного пользователя (не бота)
+        boolean isHuman = !isBot(entry.getUserAgent());
+        // Подсчет посещений обычными пользователями и их уникальных IP
+        if (isHuman) {
+            humanVisitsCount++;
+
+            // Добавляем уникальный IP обычного пользователя
+            String ipAddress = entry.getIpAddress();
+            if (ipAddress != null && !ipAddress.isEmpty()) {
+                uniqueHumanIPs.add(ipAddress);
+            }
+        }
+
+        // Подсчет ошибочных запросов (4xx или 5xx)
+        int statusCode = entry.getStatusCode();
+        if (statusCode >= 400 && statusCode < 600) {
+            errorRequestsCount++;
+        }
         // Обновляем статистику операционных систем
         UserAgent userAgent = entry.getUserAgent();
         if (userAgent != null) {
@@ -70,6 +91,63 @@ public class Statistics {
             String browserName = userAgent.getBrowser().name();
             browserStatistics.put(browserName, browserStatistics.getOrDefault(browserName, 0) + 1);
         }
+    }
+    private boolean isBot(UserAgent userAgent) {
+        if (userAgent == null) {
+            return false;
+        }
+
+        // Проверяем по названию браузера
+        UserAgent.Browser browser = userAgent.getBrowser();
+        if (browser == UserAgent.Browser.GOOGLEBOT ||
+                browser == UserAgent.Browser.YANDEXBOT) {
+            return true;
+        }
+        String originalUA = userAgent.getOriginalUserAgent().toLowerCase();
+        return originalUA.contains("bot") ||
+                originalUA.contains("crawler") ||
+                originalUA.contains("spider");
+    }
+
+    // Метод подсчёта среднего количества посещений сайта за час обычными пользователями
+    public double getAverageVisitsPerHour() {
+        if (minTime == null || maxTime == null || humanVisitsCount == 0) {
+            return 0.0;
+        }
+
+        Duration duration = Duration.between(minTime, maxTime);
+        double hours = duration.toHours();
+
+        if (hours < 1.0) {
+            hours = 1.0;
+        }
+
+        return (double) humanVisitsCount / hours;
+    }
+
+    // Метод подсчёта среднего количества ошибочных запросов в час
+    public double getAverageErrorRequestsPerHour() {
+        if (minTime == null || maxTime == null || errorRequestsCount == 0) {
+            return 0.0;
+        }
+
+        Duration duration = Duration.between(minTime, maxTime);
+        double hours = duration.toHours();
+
+        if (hours < 1.0) {
+            hours = 1.0;
+        }
+
+        return (double) errorRequestsCount / hours;
+    }
+
+    // Метод расчёта средней посещаемости одним пользователем
+    public double getAverageVisitsPerUser() {
+        if (humanVisitsCount == 0 || uniqueHumanIPs.isEmpty()) {
+            return 0.0;
+        }
+
+        return (double) humanVisitsCount / uniqueHumanIPs.size();
     }
 
     // Метод для возврата списка всех существующих страниц сайта (с кодом 200)
@@ -142,6 +220,18 @@ public class Statistics {
         }
 
         return (double) totalTraffic / hours;
+    }
+    // Геттеры для новых полей
+    public int getHumanVisitsCount() {
+        return humanVisitsCount;
+    }
+
+    public int getErrorRequestsCount() {
+        return errorRequestsCount;
+    }
+
+    public int getUniqueHumanUsersCount() {
+        return uniqueHumanIPs.size();
     }
 
     public int getTotalTraffic() {
@@ -251,6 +341,17 @@ public class Statistics {
         } else {
             report.append("   Нет данных о браузерах\n");
         }
+        double avgVisitsPerHour = getAverageVisitsPerHour();
+        report.append(String.format("   Среднее количество посещений в час: %.2f\n", avgVisitsPerHour));
+        report.append(String.format("   Посещений обычными пользователями: %,d\n", humanVisitsCount));
+        report.append(String.format("   Уникальных пользователей (IP-адресов): %,d\n", uniqueHumanIPs.size()));
+
+        double avgErrorsPerHour = getAverageErrorRequestsPerHour();
+        report.append(String.format("   Среднее количество ошибочных запросов в час: %.2f\n", avgErrorsPerHour));
+
+        double avgVisitsPerUser = getAverageVisitsPerUser();
+        report.append(String.format("   Средняя посещаемость одним пользователем: %.2f\n", avgVisitsPerUser));
+
         return report.toString();
     }
 }
