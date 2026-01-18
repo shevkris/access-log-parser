@@ -25,7 +25,6 @@ public class Statistics {
     }
 
     public void addEntry(LogEntry entry) {
-
         this.totalTraffic += entry.getResponseSize();
         this.entryCount++;
 
@@ -69,7 +68,12 @@ public class Statistics {
         }
 
         // Рассчитываем общее количество записей с информацией об ОС
-        int totalOsEntries = osStatistics.values().stream().mapToInt(Integer::intValue).sum();
+        int totalOsEntries =
+                osStatistics
+                        .values()
+                        .stream()
+                        .mapToInt(Integer::intValue)
+                        .sum();
 
         // Рассчитываем долю для каждой операционной системы
         for (Map.Entry<String, Integer> entry : osStatistics.entrySet()) {
