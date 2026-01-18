@@ -4,6 +4,10 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class Statistics {
     private int totalTraffic;
@@ -15,6 +19,9 @@ public class Statistics {
 
     private final Map<String, Integer> osStatistics;
 
+    private final Set<String> notFoundPages;
+    private final Map<String, Integer> browserStatistics;
+
     public Statistics() {
         this.totalTraffic = 0;
         this.minTime = null;
@@ -22,9 +29,12 @@ public class Statistics {
         this.entryCount = 0;
         this.existingPages = new HashSet<>();
         this.osStatistics = new HashMap<>();
+        this.notFoundPages = new HashSet<>();
+        this.browserStatistics = new HashMap<>();
     }
 
     public void addEntry(LogEntry entry) {
+        // Добавляем трафик
         this.totalTraffic += entry.getResponseSize();
         this.entryCount++;
 
@@ -45,11 +55,20 @@ public class Statistics {
                 existingPages.add(path);
             }
         }
+
+        if (entry.getStatusCode() == 404) {
+            String path = entry.getPath();
+            if (path != null && !path.isEmpty()) {
+                notFoundPages.add(path);
+            }
+        }
         // Обновляем статистику операционных систем
         UserAgent userAgent = entry.getUserAgent();
         if (userAgent != null) {
             String osName = userAgent.getOperatingSystem().name();
             osStatistics.put(osName, osStatistics.getOrDefault(osName, 0) + 1);
+            String browserName = userAgent.getBrowser().name();
+            browserStatistics.put(browserName, browserStatistics.getOrDefault(browserName, 0) + 1);
         }
     }
 
@@ -57,6 +76,31 @@ public class Statistics {
     public Set<String> getExistingPages() {
         // Возвращаем копию множества, чтобы защитить исходные данные
         return new HashSet<>(existingPages);
+    }
+    public Set<String> getNotFoundPages() {
+        return new HashSet<>(notFoundPages);
+    }
+
+    public Map<String, Double> getBrowserStatistics() {
+        Map<String, Double> result = new HashMap<>();
+
+        if (browserStatistics.isEmpty()) {
+            return result;
+        }
+
+        int totalBrowserEntries = 0;
+        for (Integer count : browserStatistics.values()) {
+            totalBrowserEntries += count;
+        }
+
+        for (Map.Entry<String, Integer> entry : browserStatistics.entrySet()) {
+            String browserName = entry.getKey();
+            int count = entry.getValue();
+            double percentage = (double) count / totalBrowserEntries;
+            result.put(browserName, percentage);
+        }
+
+        return result;
     }
 
     // Метод для возврата статистики операционных систем (доли от 0 до 1)
@@ -135,13 +179,17 @@ public class Statistics {
                     minTime, maxTime));
 
             Duration duration = Duration.between(minTime, maxTime);
+            long days = duration.toDays();
             long hours = duration.toHours();
             long minutes = duration.toMinutes() % 60;
 
-            report.append(String.format("   Продолжительность: %d ч. %d мин.\n", hours, minutes));
+            report.append(String.format("Продолжительность периода: %d дн., %d ч., %d мин.\n",
+                    days, hours, minutes));
 
             double trafficRate = getTrafficRate();
-            report.append(String.format("   Средний трафик: %,.2f байт/час\n", trafficRate));
+            report.append(String.format("Средний трафик: %.2f байт/час\n", getTrafficRate()));
+        } else {
+            report.append("Нет данных для анализа\n");
         }
 
         report.append(String.format("   Количество уникальных страниц: %d\n", existingPages.size()));
@@ -154,6 +202,17 @@ public class Statistics {
             }
         } else {
             report.append("   Нет страниц с кодом ответа 200\n");
+        }
+        report.append(String.format("   Количество уникальных несуществуюших страниц (код 404): %d\n", notFoundPages.size()));
+
+        if (!notFoundPages.isEmpty()) {
+            int pageNumber = 1;
+            for (String page : notFoundPages) {
+                report.append(String.format("   %d. %s\n", pageNumber, page));
+                pageNumber++;
+            }
+        } else {
+            report.append("   Нет страниц с кодом ответа 404\n");
         }
 
         Map<String, Double> osStats = getOsStatistics();
@@ -173,6 +232,25 @@ public class Statistics {
                     });
         } else {
             report.append("   Нет данных об операционных системах\n");
+        }
+        return report.toString();
+
+        Map<String, Double> browserStats = getBrowserStatistics();
+        if (!browserStats.isEmpty()) {
+            report.append(String.format("   Уникальных браузеров: %d\n", browserStats.size()));
+            report.append("   Распределение по браузерам:\n");
+
+            browserStats.entrySet().stream()
+                    .sorted((e1, e2) -> Double.compare(e2.getValue(), e1.getValue()))
+                    .forEach(entry -> {
+                        String browserName = entry.getKey();
+                        double percentage = entry.getValue() * 100;
+                        int count = browserStatistics.get(browserName);
+                        report.append(String.format("   - %s: %.2f%% (%d записей)\n",
+                                browserName, percentage, count));
+                    });
+        } else {
+            report.append("   Нет данных о браузерах\n");
         }
         return report.toString();
     }
