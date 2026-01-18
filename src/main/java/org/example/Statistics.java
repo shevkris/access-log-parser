@@ -233,7 +233,6 @@ public class Statistics {
         } else {
             report.append("   Нет данных об операционных системах\n");
         }
-        return report.toString();
 
         Map<String, Double> browserStats = getBrowserStatistics();
         if (!browserStats.isEmpty()) {
