@@ -2,6 +2,7 @@ package org.example;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.HashMap;
@@ -21,6 +22,9 @@ public class Statistics {
     private int humanVisitsCount;
     private int errorRequestsCount;
     private final Set<String> uniqueHumanIPs;
+    private final Map<Long, Integer> visitsPerSecond;
+    private final Map<String, Integer> visitsPerUser;
+    private final Set<String> refererDomains;
 
     public Statistics() {
         this.totalTraffic = 0;
@@ -34,6 +38,9 @@ public class Statistics {
         this.humanVisitsCount = 0;
         this.errorRequestsCount = 0;
         this.uniqueHumanIPs = new HashSet<>();
+        this.visitsPerSecond = new HashMap<>();
+        this.visitsPerUser = new HashMap<>();
+        this.refererDomains = new HashSet<>();
     }
 
     public void addEntry(LogEntry entry) {
@@ -69,12 +76,27 @@ public class Statistics {
         boolean isHuman = !isBot(entry.getUserAgent());
         // Подсчет посещений обычными пользователями и их уникальных IP
         if (isHuman) {
-            humanVisitsCount++;
+                // Получаем секунду в Unix time
+                long second = entryTime.toEpochSecond(ZoneOffset.UTC);
 
-            // Добавляем уникальный IP обычного пользователя
-            String ipAddress = entry.getIpAddress();
-            if (ipAddress != null && !ipAddress.isEmpty()) {
-                uniqueHumanIPs.add(ipAddress);
+                // Увеличиваем счетчик для данной секунды
+                visitsPerSecond.put(second, visitsPerSecond.getOrDefault(second, 0) + 1);
+
+                // Подсчет посещений по пользователям (IP-адресам)
+                String ipAddress = entry.getIpAddress();
+                if (ipAddress != null && !ipAddress.isEmpty()) {
+                    visitsPerUser.put(ipAddress, visitsPerUser.getOrDefault(ipAddress, 0) + 1);
+                }
+            humanVisitsCount++;
+            uniqueHumanIPs.add(ipAddress);
+        }
+
+        // 3. Сбор доменов из referer-ов
+        String referer = entry.getReferer();
+        if (referer != null && !referer.isEmpty() && !referer.equals("-")) {
+            String domain = extractDomainFromUrl(referer);
+            if (domain != null && !domain.isEmpty()) {
+                refererDomains.add(domain);
             }
         }
 
@@ -92,6 +114,7 @@ public class Statistics {
             browserStatistics.put(browserName, browserStatistics.getOrDefault(browserName, 0) + 1);
         }
     }
+
     private boolean isBot(UserAgent userAgent) {
         if (userAgent == null) {
             return false;
@@ -107,6 +130,83 @@ public class Statistics {
         return originalUA.contains("bot") ||
                 originalUA.contains("crawler") ||
                 originalUA.contains("spider");
+    }
+
+    // Метод для извлечения домена из URL
+    private String extractDomainFromUrl(String url) {
+        if (url == null || url.isEmpty() || url.equals("-")) {
+            return null;
+        }
+
+        try {
+            // Убираем протокол (http://, https://)
+            String domain = url.replaceFirst("^(https?://)?(www\\.)?", "");
+
+            // Убираем путь и параметры после домена
+            int slashIndex = domain.indexOf('/');
+            if (slashIndex != -1) {
+                domain = domain.substring(0, slashIndex);
+            }
+
+            // Убираем порт, если есть
+            int colonIndex = domain.indexOf(':');
+            if (colonIndex != -1) {
+                domain = domain.substring(0, colonIndex);
+            }
+
+            return domain.toLowerCase();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // 1. Метод расчёта пиковой посещаемости сайта (в секунду)
+    public int getPeakVisitsPerSecond() {
+        if (visitsPerSecond.isEmpty()) {
+            return 0;
+        }
+        // Находим максимальное значение среди всех секунд
+        return visitsPerSecond.values().stream()
+                .max(Integer::compareTo)
+                .orElse(0);
+    }
+
+    // Вспомогательный метод для получения времени пиковой посещаемости
+    public Map.Entry<Long, Integer> getPeakVisitsSecondInfo() {
+        if (visitsPerSecond.isEmpty()) {
+            return null;
+        }
+        return visitsPerSecond.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .orElse(null);
+    }
+
+    // 2. Метод, возвращающий список сайтов, со страниц которых есть ссылки на текущий сайт
+    public Set<String> getRefererDomains() {
+        return new HashSet<>(refererDomains);
+    }
+
+    // 3. Метод расчёта максимальной посещаемости одним пользователем
+    public int getMaxVisitsPerUser() {
+        if (visitsPerUser.isEmpty()) {
+            return 0;
+        }
+
+        // Находим максимальное количество посещений среди всех пользователей
+        return visitsPerUser.values().stream()
+                .max(Integer::compareTo)
+                .orElse(0);
+    }
+
+    // Вспомогательный метод для получения информации о пользователе с максимальной посещаемостью
+    public Map.Entry<String, Integer> getTopUserInfo() {
+        if (visitsPerUser.isEmpty()) {
+            return null;
+        }
+
+        return visitsPerUser.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .orElse(null);
     }
 
     // Метод подсчёта среднего количества посещений сайта за час обычными пользователями
@@ -351,6 +451,39 @@ public class Statistics {
 
         double avgVisitsPerUser = getAverageVisitsPerUser();
         report.append(String.format("   Средняя посещаемость одним пользователем: %.2f\n", avgVisitsPerUser));
+
+        int peakVisits = getPeakVisitsPerSecond();
+        Map.Entry<Long, Integer> peakSecondInfo = getPeakVisitsSecondInfo();
+
+        if (peakSecondInfo != null) {
+            LocalDateTime peakTime = LocalDateTime.ofEpochSecond(peakSecondInfo.getKey(), 0, ZoneOffset.UTC);
+            report.append(String.format("   Максимальная посещаемость в секунду: %d\n", peakVisits));
+            report.append(String.format("   Время пика: %s\n", peakTime));
+            report.append(String.format("   Секунд с данными: %,d\n", visitsPerSecond.size()));
+        } else {
+            report.append("   Нет данных о пиковой посещаемости\n");
+        }
+
+        report.append("\n3. СТАТИСТИКА ПО ПОЛЬЗОВАТЕЛЯМ:\n");
+        report.append(String.format("   Уникальных пользователей: %,d\n", uniqueHumanIPs.size()));
+        report.append(String.format("   Средняя посещаемость на пользователя: %.2f\n", getAverageVisitsPerUser()));
+        int maxVisits = getMaxVisitsPerUser();
+        Map.Entry<String, Integer> topUser = getTopUserInfo();
+        if (topUser != null) {
+            report.append(String.format("   Максимальная посещаемость одним пользователем: %d\n", maxVisits));
+            report.append(String.format("   Пользователь с максимальной посещаемостью: %s\n", topUser.getKey()));
+        }
+
+        report.append(String.format("   Количество сайтов с ссылками: %,d\n", refererDomains.size()));
+
+        if (!refererDomains.isEmpty()) {
+            report.append("   Список сайтов-референтов:\n");
+            refererDomains.stream()
+                    .sorted()
+                    .forEach(domain -> report.append(String.format("   - %s\n", domain)));
+        } else {
+            report.append("   Нет данных о сайтах-референтах\n");
+        }
 
         return report.toString();
     }
