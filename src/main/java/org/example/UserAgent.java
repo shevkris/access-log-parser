@@ -104,6 +104,10 @@ public class UserAgent {
         return Browser.OTHER;
     }
 
+    public String getOriginalUserAgent() {
+        return originalUserAgent;
+    }
+
     public OperatingSystem getOperatingSystem() {
         return os;
     }
